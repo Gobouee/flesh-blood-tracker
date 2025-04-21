@@ -1,4 +1,4 @@
-// App.jsx — V3 : Affichage par joueur avec stats détaillées (thème Flesh and Blood)
+// App.jsx — V3.1 complète : Popup de création de match, style FaB, bug Arakni corrigé
 
 import React, { useEffect, useState } from "react";
 
@@ -8,7 +8,7 @@ const initialPlayers = [
 ];
 
 const heroes = [
-  "Arakni, 5L!", "Arakni, Huntsman", "Arakni, Marionette", "Aurora, Showstopper", "Azalea, Ace in the Hole",
+  "Arakni - 5L!", "Arakni, Huntsman", "Arakni, Marionette", "Aurora, Showstopper", "Azalea, Ace in the Hole",
   "Betsy, Skin in the Game", "Bravo, Showstopper", "Cindra, Dracai of Retribution", "Dash, Inventor Extraordinaire",
   "Dash I/O", "Dorinthea Ironsong", "Enigma, Ledger of Ancestry", "Fai, Rising Rebellion", "Fang, Dracai Reborn",
   "Florian, Rotwood Harbinger", "Gravy Bones", "Ira, Scarlet Revenger", "Jarl Vetreiđi", "Kano, Dracai of Aether",
@@ -28,6 +28,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : initialPlayers;
   });
 
+  const [showMatchForm, setShowMatchForm] = useState(false);
   const [player1, setPlayer1] = useState("");
   const [player2, setPlayer2] = useState("");
   const [winner, setWinner] = useState("");
@@ -36,17 +37,15 @@ export default function App() {
   const [hero1, setHero1] = useState("");
   const [hero2, setHero2] = useState("");
   const [newPlayer, setNewPlayer] = useState("");
-  const [filter, setFilter] = useState("tous");
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("players", JSON.stringify(players));
   }, [players]);
 
-  function calculateElo(playerElo, opponentElo, result) {
+  const calculateElo = (playerElo, opponentElo, result) => {
     const expected = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
     return Math.round(playerElo + kFactor * (result - expected));
-  }
+  };
 
   const reportMatch = () => {
     if (!player1 || !player2 || !winner || player1 === player2) return;
@@ -76,6 +75,7 @@ export default function App() {
       if (p.name === player2) return updatePlayer(p, newElo2, !isP1Winner, hero2);
       return p;
     }));
+    setShowMatchForm(false);
   };
 
   const addPlayer = () => {
@@ -84,8 +84,6 @@ export default function App() {
       setNewPlayer("");
     }
   };
-
-  const goBack = () => setSelectedPlayer(null);
 
   const mainStyle = {
     background: "#2d1a13",
@@ -124,41 +122,6 @@ export default function App() {
     width: "100%"
   };
 
-  if (selectedPlayer) {
-    const stats = selectedPlayer.games.reduce((acc, game) => {
-      acc.total++;
-      acc.heroes[game.hero] = (acc.heroes[game.hero] || 0) + 1;
-      return acc;
-    }, { total: 0, heroes: {} });
-
-    const sortedHeroes = Object.entries(stats.heroes).sort((a, b) => b[1] - a[1]);
-
-    return (
-      <div style={mainStyle}>
-        <button onClick={goBack} style={buttonStyle}>⬅️ Retour</button>
-        <h2 style={{ fontSize: 28 }}>{selectedPlayer.name}</h2>
-        <div style={cardStyle}>
-          <p>ELO : {selectedPlayer.elo}</p>
-          <p>Victoires : {selectedPlayer.wins}</p>
-          <p>Défaites : {selectedPlayer.losses}</p>
-          <p>Ratio : {selectedPlayer.wins + selectedPlayer.losses > 0 ? ((selectedPlayer.wins / (selectedPlayer.wins + selectedPlayer.losses)) * 100).toFixed(1) + '%' : '—'}</p>
-          <h4>Héros les plus joués :</h4>
-          <ul>
-            {sortedHeroes.map(([hero, count]) => (
-              <li key={hero}>{hero} — {count} fois</li>
-            ))}
-          </ul>
-          <h4>📜 Historique complet :</h4>
-          <ul>
-            {selectedPlayer.games.map((g, i) => (
-              <li key={i}>{g.date} — {g.format} — {g.result} vs {g.opponent} ({g.hero})</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={mainStyle}>
       <h1 style={{ fontSize: 28, textAlign: "center", marginBottom: 20 }}>⚔️ Classement Flesh and Blood</h1>
@@ -168,59 +131,46 @@ export default function App() {
         <button onClick={addPlayer} style={{ ...buttonStyle, marginLeft: 10 }}>Ajouter</button>
       </div>
 
-      <div style={cardStyle}>
-        <select onChange={e => setPlayer1(e.target.value)} value={player1} style={selectStyle}>
-          <option value="">Choisir Joueur 1</option>
-          {players.map(p => <option key={p.name}>{p.name}</option>)}
-        </select>
-        <select onChange={e => setHero1(e.target.value)} value={hero1} style={selectStyle}>
-          <option value="">Choisir Héros J1</option>
-          {heroes.map(h => <option key={h}>{h}</option>)}
-        </select>
-        <select onChange={e => setPlayer2(e.target.value)} value={player2} style={selectStyle}>
-          <option value="">Choisir Joueur 2</option>
-          {players.map(p => <option key={p.name}>{p.name}</option>)}
-        </select>
-        <select onChange={e => setHero2(e.target.value)} value={hero2} style={selectStyle}>
-          <option value="">Choisir Héros J2</option>
-          {heroes.map(h => <option key={h}>{h}</option>)}
-        </select>
-        <select onChange={e => setWinner(e.target.value)} value={winner} style={selectStyle}>
-          <option value="">Vainqueur</option>
-          {[player1, player2].filter(Boolean).map(p => <option key={p}>{p}</option>)}
-        </select>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={selectStyle} />
-        <select onChange={e => setFormat(e.target.value)} value={format} style={selectStyle}>
-          <option value="classé">Classé</option>
-          <option value="amical">Amical</option>
-        </select>
-        <button onClick={reportMatch} style={buttonStyle}>Enregistrer la partie</button>
-      </div>
+      <button onClick={() => setShowMatchForm(true)} style={{ ...buttonStyle, marginBottom: 20 }}>➕ Créer un match</button>
 
-      <div style={cardStyle}>
-        <label>🎯 Filtrer l'historique :</label>
-        <select onChange={e => setFilter(e.target.value)} value={filter} style={selectStyle}>
-          <option value="tous">Tous</option>
-          <option value="classé">Classé</option>
-          <option value="amical">Amical</option>
-        </select>
-      </div>
+      {showMatchForm && (
+        <div style={cardStyle}>
+          <h3>Créer un match</h3>
+          <select onChange={e => setPlayer1(e.target.value)} value={player1} style={selectStyle}>
+            <option value="">Choisir Joueur 1</option>
+            {players.map(p => <option key={p.name}>{p.name}</option>)}
+          </select>
+          <select onChange={e => setHero1(e.target.value)} value={hero1} style={selectStyle}>
+            <option value="">Choisir Héros J1</option>
+            {heroes.map(h => <option key={h}>{h}</option>)}
+          </select>
+          <select onChange={e => setPlayer2(e.target.value)} value={player2} style={selectStyle}>
+            <option value="">Choisir Joueur 2</option>
+            {players.map(p => <option key={p.name}>{p.name}</option>)}
+          </select>
+          <select onChange={e => setHero2(e.target.value)} value={hero2} style={selectStyle}>
+            <option value="">Choisir Héros J2</option>
+            {heroes.map(h => <option key={h}>{h}</option>)}
+          </select>
+          <select onChange={e => setWinner(e.target.value)} value={winner} style={selectStyle}>
+            <option value="">Vainqueur</option>
+            {[player1, player2].filter(Boolean).map(p => <option key={p}>{p}</option>)}
+          </select>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={selectStyle} />
+          <select onChange={e => setFormat(e.target.value)} value={format} style={selectStyle}>
+            <option value="classé">Classé</option>
+            <option value="amical">Amical</option>
+          </select>
+          <button onClick={reportMatch} style={buttonStyle}>Enregistrer le match</button>
+          <button onClick={() => setShowMatchForm(false)} style={{ ...buttonStyle, backgroundColor: '#444', marginLeft: 10 }}>Fermer</button>
+        </div>
+      )}
 
       <h2 style={{ fontSize: 24, marginTop: 20 }}>🏆 Classement</h2>
       {players.sort((a, b) => b.elo - a.elo).map(p => (
         <div key={p.name} style={cardStyle}>
-          <strong style={{ cursor: "pointer", color: "#f1d6b8" }} onClick={() => setSelectedPlayer(p)}>
-            {p.name}
-          </strong> — {p.elo} ELO<br />
-          Victoires : {p.wins} | Défaites : {p.losses}<br />
-          <details>
-            <summary style={{ cursor: "pointer", marginTop: 5 }}>📜 Historique</summary>
-            <ul>
-              {p.games.filter(g => filter === "tous" || g.format === filter).map((g, i) => (
-                <li key={i}>{g.date} — {g.format} — {g.result} vs {g.opponent} ({g.hero})</li>
-              ))}
-            </ul>
-          </details>
+          <strong>{p.name}</strong> — {p.elo} ELO<br />
+          Victoires : {p.wins} | Défaites : {p.losses}
         </div>
       ))}
     </div>
