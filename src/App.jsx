@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+console.log("✅ App.jsx chargé !");
+
 
 const heroes = [
   "Arakni - 5L!", "Arakni, Huntsman", "Arakni, Marionette", "Aurora, Showstopper", "Azalea, Ace in the Hole",
