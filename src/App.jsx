@@ -1,4 +1,4 @@
-// App.jsx — Version V2.5 avec thème Flesh and Blood stylisé
+// App.jsx — V3 : Affichage par joueur avec stats détaillées (thème Flesh and Blood)
 
 import React, { useEffect, useState } from "react";
 
@@ -37,6 +37,7 @@ export default function App() {
   const [hero2, setHero2] = useState("");
   const [newPlayer, setNewPlayer] = useState("");
   const [filter, setFilter] = useState("tous");
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("players", JSON.stringify(players));
@@ -84,6 +85,8 @@ export default function App() {
     }
   };
 
+  const goBack = () => setSelectedPlayer(null);
+
   const mainStyle = {
     background: "#2d1a13",
     color: "#f1d6b8",
@@ -121,17 +124,47 @@ export default function App() {
     width: "100%"
   };
 
+  if (selectedPlayer) {
+    const stats = selectedPlayer.games.reduce((acc, game) => {
+      acc.total++;
+      acc.heroes[game.hero] = (acc.heroes[game.hero] || 0) + 1;
+      return acc;
+    }, { total: 0, heroes: {} });
+
+    const sortedHeroes = Object.entries(stats.heroes).sort((a, b) => b[1] - a[1]);
+
+    return (
+      <div style={mainStyle}>
+        <button onClick={goBack} style={buttonStyle}>⬅️ Retour</button>
+        <h2 style={{ fontSize: 28 }}>{selectedPlayer.name}</h2>
+        <div style={cardStyle}>
+          <p>ELO : {selectedPlayer.elo}</p>
+          <p>Victoires : {selectedPlayer.wins}</p>
+          <p>Défaites : {selectedPlayer.losses}</p>
+          <p>Ratio : {selectedPlayer.wins + selectedPlayer.losses > 0 ? ((selectedPlayer.wins / (selectedPlayer.wins + selectedPlayer.losses)) * 100).toFixed(1) + '%' : '—'}</p>
+          <h4>Héros les plus joués :</h4>
+          <ul>
+            {sortedHeroes.map(([hero, count]) => (
+              <li key={hero}>{hero} — {count} fois</li>
+            ))}
+          </ul>
+          <h4>📜 Historique complet :</h4>
+          <ul>
+            {selectedPlayer.games.map((g, i) => (
+              <li key={i}>{g.date} — {g.format} — {g.result} vs {g.opponent} ({g.hero})</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={mainStyle}>
       <h1 style={{ fontSize: 28, textAlign: "center", marginBottom: 20 }}>⚔️ Classement Flesh and Blood</h1>
 
       <div style={cardStyle}>
-        <input
-          value={newPlayer}
-          onChange={e => setNewPlayer(e.target.value)}
-          placeholder="Nouveau joueur"
-          style={{ ...selectStyle, width: "80%", display: "inline-block" }}
-        />
+        <input value={newPlayer} onChange={e => setNewPlayer(e.target.value)} placeholder="Nouveau joueur" style={{ ...selectStyle, width: "80%", display: "inline-block" }} />
         <button onClick={addPlayer} style={{ ...buttonStyle, marginLeft: 10 }}>Ajouter</button>
       </div>
 
@@ -144,7 +177,6 @@ export default function App() {
           <option value="">Choisir Héros J1</option>
           {heroes.map(h => <option key={h}>{h}</option>)}
         </select>
-
         <select onChange={e => setPlayer2(e.target.value)} value={player2} style={selectStyle}>
           <option value="">Choisir Joueur 2</option>
           {players.map(p => <option key={p.name}>{p.name}</option>)}
@@ -153,20 +185,15 @@ export default function App() {
           <option value="">Choisir Héros J2</option>
           {heroes.map(h => <option key={h}>{h}</option>)}
         </select>
-
         <select onChange={e => setWinner(e.target.value)} value={winner} style={selectStyle}>
           <option value="">Vainqueur</option>
-          {[player1, player2].filter(Boolean).map(p => (
-            <option key={p}>{p}</option>
-          ))}
+          {[player1, player2].filter(Boolean).map(p => <option key={p}>{p}</option>)}
         </select>
-
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={selectStyle} />
         <select onChange={e => setFormat(e.target.value)} value={format} style={selectStyle}>
           <option value="classé">Classé</option>
           <option value="amical">Amical</option>
         </select>
-
         <button onClick={reportMatch} style={buttonStyle}>Enregistrer la partie</button>
       </div>
 
@@ -182,17 +209,15 @@ export default function App() {
       <h2 style={{ fontSize: 24, marginTop: 20 }}>🏆 Classement</h2>
       {players.sort((a, b) => b.elo - a.elo).map(p => (
         <div key={p.name} style={cardStyle}>
-          <strong>{p.name}</strong> — {p.elo} ELO<br />
+          <strong style={{ cursor: "pointer", color: "#f1d6b8" }} onClick={() => setSelectedPlayer(p)}>
+            {p.name}
+          </strong> — {p.elo} ELO<br />
           Victoires : {p.wins} | Défaites : {p.losses}<br />
           <details>
             <summary style={{ cursor: "pointer", marginTop: 5 }}>📜 Historique</summary>
             <ul>
-              {p.games
-                .filter(g => filter === "tous" || g.format === filter)
-                .map((g, i) => (
-                  <li key={i}>
-                    {g.date} — {g.format} — {g.result} vs {g.opponent} ({g.hero})
-                  </li>
+              {p.games.filter(g => filter === "tous" || g.format === filter).map((g, i) => (
+                <li key={i}>{g.date} — {g.format} — {g.result} vs {g.opponent} ({g.hero})</li>
               ))}
             </ul>
           </details>
