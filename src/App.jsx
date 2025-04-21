@@ -1,4 +1,4 @@
-// App.jsx — V4 : Connexion Supabase active (joueurs + matchs synchronisés)
+// App.jsx — V4.1 : Supabase 100%, insertion cloud vérifiée avec log d'erreur
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
@@ -36,7 +36,11 @@ export default function App() {
 
   const fetchPlayers = async () => {
     const { data, error } = await supabase.from("players").select("*");
-    if (!error) setPlayers(data);
+    if (error) {
+      console.error("Erreur chargement joueurs:", error);
+    } else {
+      setPlayers(data);
+    }
   };
 
   const calculateElo = (playerElo, opponentElo, result) => {
@@ -47,7 +51,10 @@ export default function App() {
   const addPlayer = async () => {
     if (!newPlayer || players.find(p => p.name === newPlayer)) return;
     const { error } = await supabase.from("players").insert({ name: newPlayer, elo: 1000, wins: 0, losses: 0 });
-    if (!error) {
+    if (error) {
+      console.error("Erreur ajout joueur:", error);
+    } else {
+      console.log("✅ Joueur ajouté dans Supabase");
       setNewPlayer("");
       fetchPlayers();
     }
@@ -62,8 +69,7 @@ export default function App() {
     const newElo1 = format === "classé" ? calculateElo(p1.elo, p2.elo, isP1Winner ? 1 : 0) : p1.elo;
     const newElo2 = format === "classé" ? calculateElo(p2.elo, p1.elo, isP1Winner ? 0 : 1) : p2.elo;
 
-    // Ajouter le match dans la base
-    await supabase.from("matches").insert({
+    const matchInsert = await supabase.from("matches").insert({
       player1,
       player2,
       hero1,
@@ -72,19 +78,25 @@ export default function App() {
       format,
       date
     });
+    if (matchInsert.error) {
+      console.error("Erreur ajout match:", matchInsert.error);
+      return;
+    }
 
-    // Mettre à jour les deux joueurs
-    await supabase.from("players").update({
+    const update1 = await supabase.from("players").update({
       elo: newElo1,
       wins: isP1Winner ? p1.wins + 1 : p1.wins,
       losses: !isP1Winner ? p1.losses + 1 : p1.losses
     }).eq("name", player1);
 
-    await supabase.from("players").update({
+    const update2 = await supabase.from("players").update({
       elo: newElo2,
       wins: !isP1Winner ? p2.wins + 1 : p2.wins,
       losses: isP1Winner ? p2.losses + 1 : p2.losses
     }).eq("name", player2);
+
+    if (update1.error) console.error("Erreur update joueur 1:", update1.error);
+    if (update2.error) console.error("Erreur update joueur 2:", update2.error);
 
     fetchPlayers();
     setShowMatchForm(false);
@@ -129,7 +141,7 @@ export default function App() {
 
   return (
     <div style={mainStyle}>
-      <h1 style={{ fontSize: 28, textAlign: "center", marginBottom: 20 }}>⚔️ Classement Flesh and Blood (cloud)</h1>
+      <h1 style={{ fontSize: 28, textAlign: "center", marginBottom: 20 }}>⚔️ Classement Flesh and Blood (Supabase)</h1>
 
       <div style={cardStyle}>
         <input value={newPlayer} onChange={e => setNewPlayer(e.target.value)} placeholder="Nouveau joueur" style={{ ...selectStyle, width: "80%", display: "inline-block" }} />
@@ -171,7 +183,7 @@ export default function App() {
         </div>
       )}
 
-      <h2 style={{ fontSize: 24, marginTop: 20 }}>🏆 Classement (données cloud)</h2>
+      <h2 style={{ fontSize: 24, marginTop: 20 }}>🏆 Classement (cloud)</h2>
       {players.sort((a, b) => b.elo - a.elo).map(p => (
         <div key={p.name} style={cardStyle}>
           <strong>{p.name}</strong> — {p.elo} ELO<br />
