@@ -54,7 +54,7 @@ export default function App() {
     if (error) {
       console.error("Erreur ajout joueur:", error);
     } else {
-      console.log("✅ Joueur ajouté dans Supabase");
+      console.log("Tentative d'ajout de joueur :", newPlayer);
       setNewPlayer("");
       fetchPlayers();
     }
