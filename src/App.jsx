@@ -1,3 +1,6 @@
+// Début d'une application React pour le suivi des matchs Flesh and Blood
+// Cette base posera les fondations : création de compte, enregistrement de matchs, classement ELO
+
 import React, { useState } from "react";
 
 const initialPlayers = [
@@ -5,12 +8,20 @@ const initialPlayers = [
   { name: "Alex", elo: 1000, games: [], wins: 0, losses: 0 },
 ];
 
-const kFactor = 32;
+const heroes = [
+  "Arakni, 5L!", "Arakni, Huntsman", "Arakni, Marionette", "Aurora, Showstopper", "Azalea, Ace in the Hole",
+  "Betsy, Skin in the Game", "Bravo, Showstopper", "Cindra, Dracai of Retribution", "Dash, Inventor Extraordinaire",
+  "Dash I/O", "Dorinthea Ironsong", "Enigma, Ledger of Ancestry", "Fai, Rising Rebellion", "Fang, Dracai Reborn",
+  "Florian, Rotwood Harbinger", "Gravy Bones", "Ira, Scarlet Revenger", "Jarl Vetreiđi", "Kano, Dracai of Aether",
+  "Kassai of the Golden Sand", "Katsu, the Wanderer", "Kayo, Armed and Dangerous", "Levia, Shadowborn Abomination",
+  "Marlynn, Trickster's Delight", "Maxx 'The Hype' Nitro", "Nuu, Alluring Desire", "Olympia, Prodigy of War",
+  "Oscilio, Constella Intelligence", "Prism, Awakener of Sol", "Puffin, High Seas Enforcer", "Rhinar, Reckless Rampage",
+  "Riptide, Lurker of the Deep", "Ser Boltyn, Breaker of Dawn", "Teklovossen, Esteemed Magnate",
+  "Uzuri, Switchblade", "Valda, Seismic Shaker", "Verdance, Thorn of the Rose", "Victor Goldmane, High and Mighty",
+  "Vynnset, Iron Maiden", "Zen, Tamer of Purpose"
+].sort();
 
-function calculateElo(playerElo, opponentElo, result) {
-  const expected = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
-  return Math.round(playerElo + kFactor * (result - expected));
-}
+const kFactor = 32; // Valeur pour le calcul ELO
 
 export default function App() {
   const [players, setPlayers] = useState(initialPlayers);
@@ -21,6 +32,11 @@ export default function App() {
   const [format, setFormat] = useState("classé");
   const [hero1, setHero1] = useState("");
   const [hero2, setHero2] = useState("");
+
+  function calculateElo(playerElo, opponentElo, result) {
+    const expected = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
+    return Math.round(playerElo + kFactor * (result - expected));
+  }
 
   const reportMatch = () => {
     if (!player1 || !player2 || !winner || player1 === player2) return;
@@ -61,13 +77,19 @@ export default function App() {
           <option value="">Choisir Joueur 1</option>
           {players.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
         </select>
-        <input placeholder="Héros Joué (J1)" value={hero1} onChange={e => setHero1(e.target.value)} />
+        <select onChange={e => setHero1(e.target.value)} value={hero1}>
+          <option value="">Choisir Héros J1</option>
+          {heroes.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
 
         <select onChange={e => setPlayer2(e.target.value)} value={player2}>
           <option value="">Choisir Joueur 2</option>
           {players.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
         </select>
-        <input placeholder="Héros Joué (J2)" value={hero2} onChange={e => setHero2(e.target.value)} />
+        <select onChange={e => setHero2(e.target.value)} value={hero2}>
+          <option value="">Choisir Héros J2</option>
+          {heroes.map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
 
         <select onChange={e => setWinner(e.target.value)} value={winner}>
           <option value="">Vainqueur</option>
