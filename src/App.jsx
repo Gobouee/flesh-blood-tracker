@@ -1,11 +1,7 @@
-// App.jsx — V3.1 complète : Popup de création de match, style FaB, bug Arakni corrigé
+// App.jsx — V4 : Connexion Supabase active (joueurs + matchs synchronisés)
 
 import React, { useEffect, useState } from "react";
-
-const initialPlayers = [
-  { name: "Florian", elo: 1000, games: [], wins: 0, losses: 0 },
-  { name: "Alex", elo: 1000, games: [], wins: 0, losses: 0 },
-];
+import { supabase } from "./supabaseClient";
 
 const heroes = [
   "Arakni - 5L!", "Arakni, Huntsman", "Arakni, Marionette", "Aurora, Showstopper", "Azalea, Ace in the Hole",
@@ -23,11 +19,7 @@ const heroes = [
 const kFactor = 32;
 
 export default function App() {
-  const [players, setPlayers] = useState(() => {
-    const saved = localStorage.getItem("players");
-    return saved ? JSON.parse(saved) : initialPlayers;
-  });
-
+  const [players, setPlayers] = useState([]);
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [player1, setPlayer1] = useState("");
   const [player2, setPlayer2] = useState("");
@@ -39,15 +31,29 @@ export default function App() {
   const [newPlayer, setNewPlayer] = useState("");
 
   useEffect(() => {
-    localStorage.setItem("players", JSON.stringify(players));
-  }, [players]);
+    fetchPlayers();
+  }, []);
+
+  const fetchPlayers = async () => {
+    const { data, error } = await supabase.from("players").select("*");
+    if (!error) setPlayers(data);
+  };
 
   const calculateElo = (playerElo, opponentElo, result) => {
     const expected = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
     return Math.round(playerElo + kFactor * (result - expected));
   };
 
-  const reportMatch = () => {
+  const addPlayer = async () => {
+    if (!newPlayer || players.find(p => p.name === newPlayer)) return;
+    const { error } = await supabase.from("players").insert({ name: newPlayer, elo: 1000, wins: 0, losses: 0 });
+    if (!error) {
+      setNewPlayer("");
+      fetchPlayers();
+    }
+  };
+
+  const reportMatch = async () => {
     if (!player1 || !player2 || !winner || player1 === player2) return;
     const p1 = players.find(p => p.name === player1);
     const p2 = players.find(p => p.name === player2);
@@ -56,33 +62,32 @@ export default function App() {
     const newElo1 = format === "classé" ? calculateElo(p1.elo, p2.elo, isP1Winner ? 1 : 0) : p1.elo;
     const newElo2 = format === "classé" ? calculateElo(p2.elo, p1.elo, isP1Winner ? 0 : 1) : p2.elo;
 
-    const updatePlayer = (player, newElo, isWinner, hero) => ({
-      ...player,
-      elo: newElo,
-      games: [...player.games, {
-        opponent: player.name === player1 ? player2 : player1,
-        date,
-        result: isWinner ? "Victoire" : "Défaite",
-        format,
-        hero
-      }],
-      wins: isWinner ? player.wins + 1 : player.wins,
-      losses: !isWinner ? player.losses + 1 : player.losses,
+    // Ajouter le match dans la base
+    await supabase.from("matches").insert({
+      player1,
+      player2,
+      hero1,
+      hero2,
+      winner,
+      format,
+      date
     });
 
-    setPlayers(players.map(p => {
-      if (p.name === player1) return updatePlayer(p, newElo1, isP1Winner, hero1);
-      if (p.name === player2) return updatePlayer(p, newElo2, !isP1Winner, hero2);
-      return p;
-    }));
-    setShowMatchForm(false);
-  };
+    // Mettre à jour les deux joueurs
+    await supabase.from("players").update({
+      elo: newElo1,
+      wins: isP1Winner ? p1.wins + 1 : p1.wins,
+      losses: !isP1Winner ? p1.losses + 1 : p1.losses
+    }).eq("name", player1);
 
-  const addPlayer = () => {
-    if (newPlayer && !players.find(p => p.name === newPlayer)) {
-      setPlayers([...players, { name: newPlayer, elo: 1000, games: [], wins: 0, losses: 0 }]);
-      setNewPlayer("");
-    }
+    await supabase.from("players").update({
+      elo: newElo2,
+      wins: !isP1Winner ? p2.wins + 1 : p2.wins,
+      losses: isP1Winner ? p2.losses + 1 : p2.losses
+    }).eq("name", player2);
+
+    fetchPlayers();
+    setShowMatchForm(false);
   };
 
   const mainStyle = {
@@ -124,7 +129,7 @@ export default function App() {
 
   return (
     <div style={mainStyle}>
-      <h1 style={{ fontSize: 28, textAlign: "center", marginBottom: 20 }}>⚔️ Classement Flesh and Blood</h1>
+      <h1 style={{ fontSize: 28, textAlign: "center", marginBottom: 20 }}>⚔️ Classement Flesh and Blood (cloud)</h1>
 
       <div style={cardStyle}>
         <input value={newPlayer} onChange={e => setNewPlayer(e.target.value)} placeholder="Nouveau joueur" style={{ ...selectStyle, width: "80%", display: "inline-block" }} />
@@ -166,7 +171,7 @@ export default function App() {
         </div>
       )}
 
-      <h2 style={{ fontSize: 24, marginTop: 20 }}>🏆 Classement</h2>
+      <h2 style={{ fontSize: 24, marginTop: 20 }}>🏆 Classement (données cloud)</h2>
       {players.sort((a, b) => b.elo - a.elo).map(p => (
         <div key={p.name} style={cardStyle}>
           <strong>{p.name}</strong> — {p.elo} ELO<br />
